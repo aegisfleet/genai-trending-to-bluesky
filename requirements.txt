@@ -1,0 +1,6 @@
+atproto
+beautifulsoup4
+google-generativeai
+Pillow
+pytz
+requests
