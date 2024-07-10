@@ -17,6 +17,10 @@ def get_articles(config):
 
     previous_articles = artifact_utils.load_previous_results()
     response = requests.get(url)
+    if response is None or not response.text:
+        print(f"Failed to fetch the webpage from {url}")
+        return []
+
     soup = BeautifulSoup(response.text, "html.parser")
     article_elements = soup.find_all(container_tag["name"], class_=container_tag["class_"])
 
@@ -49,18 +53,32 @@ def fetch_article_content(url, config):
     retries = 5
     for attempt in range(retries):
         response = requests.get(url)
+        if response is None:
+            print(f"Failed to fetch the article content from {url} (attempt {attempt + 1}/{retries})")
+            if attempt < retries - 1:
+                time.sleep(5)
+            continue
+
         response.encoding = response.apparent_encoding
         
         if response.text:
             break
         elif attempt < retries - 1:
+            print(f"Empty response from {url} (attempt {attempt + 1}/{retries})")
             time.sleep(5)
     else:
+        print(f"Failed to fetch article content after {retries} attempts")
         return None
 
     soup = BeautifulSoup(response.text, 'html.parser')
     article_content_config = config.get("article_content", {"name": "div", "class_": ""})
-    article_content = soup.find(article_content_config["name"], class_=article_content_config["class_"]).text.strip()
+    article_content_element = soup.find(article_content_config["name"], class_=article_content_config["class_"])
+
+    if article_content_element is None:
+        print(f"Could not find article content element in {url}")
+        return None
+
+    article_content = article_content_element.text.strip()
     article_content = remove_newlines(article_content)
     return article_content[:6000]
 
