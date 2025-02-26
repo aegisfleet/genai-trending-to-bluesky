@@ -31,7 +31,7 @@ python main.py <BlueSkyのユーザーハンドル> <BlueSkyのパスワード> 
 
 ### モードの種類
 
-- techcrunch：TechCrunchの記事の要約を投稿します。
+- techblog：RSSから取得したAI関連記事の要約を投稿します。
 - venturebeat：VentureBeatの記事の要約を投稿します。
 
 ## 技術要素

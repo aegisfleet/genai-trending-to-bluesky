@@ -46,7 +46,7 @@ def get_articles(config):
     return articles
 
 def remove_newlines(text):
-    clean_text = re.sub('\n\s*\n', '\n', text)
+    clean_text = re.sub(r'\n\s*\n', '\n', text)
     return clean_text
 
 def fetch_article_content(url, config):
@@ -60,7 +60,7 @@ def fetch_article_content(url, config):
             continue
 
         response.encoding = response.apparent_encoding
-        
+
         if response.text:
             break
         elif attempt < retries - 1:

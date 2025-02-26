@@ -1,4 +1,4 @@
-name: スクリプトを実行する(techcrunch)
+name: スクリプトを実行する(techblog)
 
 on:
   workflow_dispatch:
@@ -36,7 +36,7 @@ jobs:
           BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
           BLUESKY_PASSWORD: ${{ secrets.BLUESKY_PASSWORD }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python main.py "${BLUESKY_HANDLE}" "${BLUESKY_PASSWORD}" "${GEMINI_API_KEY}" techcrunch
+        run: python main.py "${BLUESKY_HANDLE}" "${BLUESKY_PASSWORD}" "${GEMINI_API_KEY}" techblog
 
       - name: 成果物をアップロード
         uses: actions/upload-artifact@v4
