@@ -24,8 +24,15 @@ def fetch_trending_articles(url: str = "https://karaage0703.github.io/tech-blog-
             title = item.find('title')
             description = item.find('description')
 
-            if link is not None and title is not None and description is not None and link.text not in previous_articles:
-                articles.append((link.text or "", title.text or "", description.text or ""))
+            if (
+                link is None 
+                or title is None 
+                or description is None 
+                or link.text in previous_articles 
+                or any(link.text == article[0] for article in articles)
+            ):
+                continue
+            articles.append((link.text or "", title.text or "", description.text or ""))
 
     artifact_utils.save_results(articles)
     return articles
