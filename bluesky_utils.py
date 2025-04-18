@@ -10,6 +10,7 @@ def fetch_webpage_metadata(url):
     try:
         response = requests.get(url, timeout=60)
         response.raise_for_status()
+        response.encoding = response.apparent_encoding
     except Exception as error:
         print(f"リクエスト中にエラーが発生しました: {error}")
         return "", "", ""
@@ -28,6 +29,9 @@ def parse_html_for_metadata(html_content):
 
     description_content = description["content"] if description and isinstance(description, Tag) else ""
     image_url = image["content"] if image and isinstance(image, Tag) else ""
+
+    title_text = BeautifulSoup(title_text, "html.parser").get_text()
+    description_content = BeautifulSoup(description_content if isinstance(description_content, str) else "", "html.parser").get_text()
 
     return title_text, description_content, image_url
 
