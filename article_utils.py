@@ -16,9 +16,15 @@ def get_articles(config):
     href_prefix = config.get("href_prefix", "")
 
     previous_articles = artifact_utils.load_previous_results()
-    response = requests.get(url)
-    if response is None or not response.text:
-        print(f"Failed to fetch the webpage from {url}")
+    try:
+        response = requests.get(url, timeout=60)
+        response.raise_for_status()
+    except Exception as e:
+        print(f"Failed to fetch the webpage from {url}: {e}")
+        return []
+
+    if not response.text:
+        print(f"Empty response body from {url}")
         return []
 
     soup = BeautifulSoup(response.text, "html.parser")
@@ -52,19 +58,19 @@ def remove_newlines(text):
 def fetch_article_content(url, config):
     retries = 5
     for attempt in range(retries):
-        response = requests.get(url)
-        if response is None:
-            print(f"Failed to fetch the article content from {url} (attempt {attempt + 1}/{retries})")
-            if attempt < retries - 1:
-                time.sleep(5)
-            continue
+        try:
+            response = requests.get(url, timeout=60)
+            response.raise_for_status()
+            response.encoding = response.apparent_encoding
 
-        response.encoding = response.apparent_encoding
+            if response.text:
+                break
+            else:
+                print(f"Empty response from {url} (attempt {attempt + 1}/{retries})")
+        except Exception as e:
+            print(f"Failed to fetch the article content from {url} (attempt {attempt + 1}/{retries}): {e}")
 
-        if response.text:
-            break
-        elif attempt < retries - 1:
-            print(f"Empty response from {url} (attempt {attempt + 1}/{retries})")
+        if attempt < retries - 1:
             time.sleep(5)
     else:
         print(f"Failed to fetch article content after {retries} attempts")

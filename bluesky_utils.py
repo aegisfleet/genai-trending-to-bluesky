@@ -6,6 +6,8 @@ from atproto_client.exceptions import UnauthorizedError, NetworkError
 from bs4 import BeautifulSoup, Tag
 from PIL import Image
 
+HTML_PARSER = "html.parser"
+
 def fetch_webpage_metadata(url):
     try:
         response = requests.get(url, timeout=60)
@@ -18,7 +20,7 @@ def fetch_webpage_metadata(url):
     return parse_html_for_metadata(response.text)
 
 def parse_html_for_metadata(html_content):
-    soup = BeautifulSoup(html_content, "html.parser")
+    soup = BeautifulSoup(html_content, HTML_PARSER)
 
     title = soup.find("title")
     title_text = title.get_text() if title else ""
@@ -30,8 +32,8 @@ def parse_html_for_metadata(html_content):
     description_content = description["content"] if description and isinstance(description, Tag) else ""
     image_url = image["content"] if image and isinstance(image, Tag) else ""
 
-    title_text = BeautifulSoup(title_text, "html.parser").get_text()
-    description_content = BeautifulSoup(description_content if isinstance(description_content, str) else "", "html.parser").get_text()
+    title_text = BeautifulSoup(title_text, HTML_PARSER).get_text()
+    description_content = BeautifulSoup(description_content if isinstance(description_content, str) else "", HTML_PARSER).get_text()
 
     return title_text, description_content, image_url
 
@@ -80,38 +82,37 @@ def compress_image(image_bytes, max_size_kb=500, quality=85):
             img = img.resize((img.width * 9 // 10, img.height * 9 // 10), 
                              resample=Image.Resampling.LANCZOS)
 
-def create_external_embed(bs_client, title, description, url, img_url):
-    trimmed_desc = description.replace("\n", "")[:200]
-    img_data = None
-    thumb_blob = None
-    retries = 3
-
+def _download_image(url, retries=3):
     for attempt in range(1, retries + 1):
         try:
-            img_response = requests.get(img_url)
+            img_response = requests.get(url, timeout=30)
             img_response.raise_for_status()
-            img_data = img_response.content
-            break
+            return img_response.content
         except requests.RequestException as e:
             print(f"画像データの取得に失敗しました: {e} リトライ回数: {attempt}")
             if attempt < retries:
                 time.sleep(10)
             else:
                 print("画像の取得に最終的に失敗しました。サムネイルなしで進めます。")
+    return None
 
-    if img_data is not None:
-        compressed_img_data = compress_image(img_data)
+def _upload_thumbnail(bs_client, img_data, retries=3):
+    compressed_img_data = compress_image(img_data)
+    for attempt in range(1, retries + 1):
+        try:
+            return bs_client.upload_blob(compressed_img_data).blob
+        except NetworkError as e:
+            print(f"サムネイルのアップロードに失敗しました: {e} リトライ回数: {attempt}")
+            if attempt < retries:
+                time.sleep(10)
+            else:
+                print("サムネイルのアップロードに最終的に失敗しました。サムネイルなしで進めます。")
+    return None
 
-        for attempt in range(1, retries + 1):
-            try:
-                thumb_blob = bs_client.upload_blob(compressed_img_data).blob
-                break
-            except NetworkError as e:
-                print(f"サムネイルのアップロードに失敗しました: {e} リトライ回数: {attempt}")
-                if attempt < retries:
-                    time.sleep(10)
-                else:
-                    print("サムネイルのアップロードに最終的に失敗しました。サムネイルなしで進めます。")
+def create_external_embed(bs_client, title, description, url, img_url):
+    trimmed_desc = description.replace("\n", "")[:200]
+    img_data = _download_image(img_url) if img_url else None
+    thumb_blob = _upload_thumbnail(bs_client, img_data) if img_data else None
 
     return models.AppBskyEmbedExternal.Main(
         external=models.AppBskyEmbedExternal.External(
