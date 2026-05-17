@@ -81,6 +81,10 @@ def post(user_handle: str, user_password: str, api_key: str, config: dict):
     targets = fetch_trending_articles()
 
     bs_client = BSClient()
+    bs_client.request.add_additional_header(
+        "User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    )
 
     for full_url, title, description in targets:
         print(f"\nURL: {full_url}\nTitle: {title}")

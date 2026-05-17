@@ -116,6 +116,10 @@ def post(user_handle, user_password, api_key, config):
     targets = get_articles(config)
 
     bs_client = BSClient()
+    bs_client.request.add_additional_header(
+        "User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    )
 
     for full_url, title in targets:
         print(f"\nURL: {full_url}\nTitle: {title}")
