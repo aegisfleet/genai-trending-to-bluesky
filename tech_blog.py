@@ -81,10 +81,6 @@ def post(user_handle: str, user_password: str, api_key: str, config: dict):
     targets = fetch_trending_articles()
 
     bs_client = BSClient()
-    bs_client.request.add_additional_header(
-        "User-Agent",
-        "genai-trending-to-bluesky/1.0 (https://github.com/aegisfleet/genai-trending-to-bluesky)"
-    )
     bs_client = bluesky_utils.authenticate(bs_client, user_handle, user_password)
 
     for full_url, title, description in targets:
