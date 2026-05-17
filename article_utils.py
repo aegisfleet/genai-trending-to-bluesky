@@ -120,7 +120,7 @@ def post(user_handle, user_password, api_key, config):
         "User-Agent",
         "genai-trending-to-bluesky/1.0 (https://github.com/aegisfleet/genai-trending-to-bluesky)"
     )
-    bluesky_utils.authenticate(bs_client, user_handle, user_password)
+    bs_client = bluesky_utils.authenticate(bs_client, user_handle, user_password)
 
     for full_url, title in targets:
         print(f"\nURL: {full_url}\nTitle: {title}")

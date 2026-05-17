@@ -37,26 +37,100 @@ def parse_html_for_metadata(html_content):
 
     return title_text, description_content, image_url
 
-def authenticate(bs_client, username, password, retries=5, wait_time=5):
+def _resolve_pds_endpoint(handle):
+    """ハンドルからPDSエンドポイントを解決する。
+    1. DNS TXTレコード(_atproto.{handle})でDIDを取得
+    2. plc.directoryでDIDドキュメントを取得しPDSエンドポイントを抽出
+    """
+    import dns.resolver
+    try:
+        # DNS TXTレコードからDIDを解決
+        txt_name = f"_atproto.{handle}"
+        print(f"DNS TXTレコードを確認: {txt_name}")
+        answers = dns.resolver.resolve(txt_name, "TXT")
+        did = None
+        for rdata in answers:
+            txt_value = rdata.strings[0].decode("utf-8")
+            if txt_value.startswith("did="):
+                did = txt_value[4:]
+                break
+        if not did:
+            print("DNS TXTレコードからDIDを取得できなかった")
+            return None
+        print(f"DIDを解決した: {did}")
+    except Exception as e:
+        print(f"DNS解決に失敗した: {e}")
+        # フォールバック: HTTPS経由でwell-knownからDIDを解決
+        try:
+            well_known_url = f"https://{handle}/.well-known/atproto-did"
+            resp = requests.get(well_known_url, timeout=10)
+            resp.raise_for_status()
+            did = resp.text.strip()
+            print(f"well-known経由でDIDを解決した: {did}")
+        except Exception as e2:
+            print(f"well-known経由のDID解決にも失敗した: {e2}")
+            return None
+
+    # plc.directoryでPDSエンドポイントを取得
+    try:
+        plc_url = f"https://plc.directory/{did}"
+        print(f"PLC directoryに問い合わせ: {plc_url}")
+        resp = requests.get(plc_url, timeout=10)
+        resp.raise_for_status()
+        did_doc = resp.json()
+        services = did_doc.get("service", [])
+        for svc in services:
+            if svc.get("type") == "AtprotoPersonalDataServer":
+                pds_url = svc.get("serviceEndpoint")
+                print(f"PDSエンドポイントを取得した: {pds_url}")
+                return pds_url
+        print("DIDドキュメントにPDSエンドポイントが見つからなかった")
+    except Exception as e:
+        print(f"PLC directoryの問い合わせに失敗した: {e}")
+    return None
+
+def _try_login(client, username, password, retries=3, wait_time=5, label=""):
+    """指定クライアントでログインを試行し、成功時にクライアントを返す。失敗時はNone。"""
     for attempt in range(retries):
         try:
-            bs_client.login(username, password)
-            print("認証に成功した")
-            return
+            client.login(username, password)
+            print(f"{label}認証に成功した")
+            return client
         except (UnauthorizedError, NetworkError, Exception) as e:
-            # ELBが返すHTML 403はクレデンシャルの問題ではなくインフラの問題
-            is_elb_error = "awselb" in str(e) or "403 Forbidden" in str(e)
-            if is_elb_error:
-                print(f"試行 {attempt + 1}: ELB/インフラレベルのエラーを検出: {e}")
-            else:
-                print(f"試行 {attempt + 1} 失敗: {e}")
+            _log_auth_error(attempt, e, label)
             if attempt < retries - 1:
-                backoff = wait_time * (2 ** attempt)
-                print(f"{backoff}秒後にリトライする...")
-                time.sleep(backoff)
-            else:
-                print("全リトライが失敗した。")
-                raise e
+                time.sleep(wait_time)
+    return None
+
+def _log_auth_error(attempt, error, label=""):
+    """認証エラーのログ出力。"""
+    is_elb_error = "awselb" in str(error) or "403 Forbidden" in str(error)
+    if is_elb_error:
+        print(f"{label}試行 {attempt + 1}: ELB/インフラレベルのエラーを検出")
+    else:
+        print(f"{label}試行 {attempt + 1} 失敗: {error}")
+
+def authenticate(bs_client, username, password, retries=3, wait_time=5):
+    """認証を行い、認証済みクライアントを返す。
+    bsky.socialに接続できない場合、PDS直接接続にフォールバックする。
+    フォールバック時は新しいクライアントが返される。
+    """
+    # まずデフォルトエンドポイント(bsky.social)で試行
+    result = _try_login(bs_client, username, password, retries, wait_time)
+    if result:
+        return result
+
+    # デフォルトエンドポイントが全て失敗した場合、PDS直接接続を試行
+    print("デフォルトエンドポイントへの接続に失敗した。PDS直接接続を試行する...")
+    pds_url = _resolve_pds_endpoint(username)
+    if pds_url:
+        from atproto import Client as BSClient
+        pds_client = BSClient(base_url=pds_url)
+        result = _try_login(pds_client, username, password, retries, wait_time, label="PDS直接接続 ")
+        if result:
+            return result
+
+    raise ConnectionError("全ての認証方法が失敗した。Blueskyのサービス状態を確認してください。")
 
 def format_message(title, introduction, content):
     formatted_content = content.strip().replace("  ", "").replace("\n", "").replace("。", "。\n")
