@@ -37,19 +37,25 @@ def parse_html_for_metadata(html_content):
 
     return title_text, description_content, image_url
 
-def authenticate(bs_client, username, password, retries=3, wait_time=5):
+def authenticate(bs_client, username, password, retries=5, wait_time=5):
     for attempt in range(retries):
         try:
             bs_client.login(username, password)
-            print("Authentication successful")
+            print("認証に成功した")
             return
-        except UnauthorizedError as e:
-            print(f"Attempt {attempt + 1} failed: {e}")
-            if attempt < retries - 1:
-                print(f"Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
+        except (UnauthorizedError, NetworkError, Exception) as e:
+            # ELBが返すHTML 403はクレデンシャルの問題ではなくインフラの問題
+            is_elb_error = "awselb" in str(e) or "403 Forbidden" in str(e)
+            if is_elb_error:
+                print(f"試行 {attempt + 1}: ELB/インフラレベルのエラーを検出: {e}")
             else:
-                print("All retry attempts failed. Please check your credentials.")
+                print(f"試行 {attempt + 1} 失敗: {e}")
+            if attempt < retries - 1:
+                backoff = wait_time * (2 ** attempt)
+                print(f"{backoff}秒後にリトライする...")
+                time.sleep(backoff)
+            else:
+                print("全リトライが失敗した。")
                 raise e
 
 def format_message(title, introduction, content):

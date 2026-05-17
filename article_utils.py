@@ -118,8 +118,9 @@ def post(user_handle, user_password, api_key, config):
     bs_client = BSClient()
     bs_client.request.add_additional_header(
         "User-Agent",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "genai-trending-to-bluesky/1.0 (https://github.com/aegisfleet/genai-trending-to-bluesky)"
     )
+    bluesky_utils.authenticate(bs_client, user_handle, user_password)
 
     for full_url, title in targets:
         print(f"\nURL: {full_url}\nTitle: {title}")
@@ -134,7 +135,6 @@ def post(user_handle, user_password, api_key, config):
         title, description, image_url = bluesky_utils.fetch_webpage_metadata(full_url)
         print(post_text.build_text(), image_url, sep="\n")
 
-        bluesky_utils.authenticate(bs_client, user_handle, user_password)
         embed_external = bluesky_utils.create_external_embed(
             bs_client, title, description, full_url, image_url
         )
