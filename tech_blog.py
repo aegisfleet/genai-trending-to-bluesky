@@ -81,7 +81,7 @@ def post(user_handle: str, user_password: str, api_key: str, config: dict):
     targets = fetch_trending_articles()
 
     bs_client = BSClient()
-    bs_client = bluesky_utils.authenticate(bs_client, user_handle, user_password)
+    auth_client = bluesky_utils.authenticate(bs_client, user_handle, user_password)
 
     for full_url, title, description in targets:
         print(f"\nURL: {full_url}\nTitle: {title}")
@@ -95,6 +95,6 @@ def post(user_handle: str, user_password: str, api_key: str, config: dict):
         print(post_text.build_text(), image_url, sep="\n")
 
         embed_external = bluesky_utils.create_external_embed(
-            bs_client, title, description, full_url, image_url
+            auth_client, title, description, full_url, image_url
         )
-        bluesky_utils.post(bs_client, post_text, embed_external)
+        bluesky_utils.post(auth_client, post_text, embed_external)
