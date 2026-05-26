@@ -1,7 +1,0 @@
-atproto
-beautifulsoup4
-dnspython
-google-genai
-packaging
-Pillow
-requests
