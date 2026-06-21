@@ -58,4 +58,3 @@ def generate_text_with_gemini(api_key: str, prompt_text: str) -> str:
                 time.sleep(delay)
             else:
                 raise e
-
